@@ -19,9 +19,9 @@ app.get('/hello', (req, res) => {
 });
 
 // apis
-app.use('/api/admin', require('./api/admin.js'));
+app.use('/api/customer', require('./api/customer.js'));
 
-// start serverdocker run -d -p 27017:27017 --name mongodb mongo
+// start server
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
 });

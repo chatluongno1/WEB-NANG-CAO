@@ -31,55 +31,40 @@ const ProductDAO = {
   },
 
   async selectTopNew(top) {
-    try {
-      const products = await Models.Product
-        .find({})
-        .sort({ cdate: -1 })
-        .limit(top)
-        .exec();
-      return products;
-    } catch (error) {
-      console.error('Error selecting top new products:', error);
-      return [];
-    }
+    const query = {};
+    const mysort = { cdate: -1 }; // descending
+    const products = await Models.Product.find(query).sort(mysort).limit(top).exec();
+    return products;
   },
 
   async selectTopHot(top) {
-    try {
-      const items = await Models.Order.aggregate([
-        { $match: { status: 'APPROVED' } },
-        { $unwind: '$items' },
-        {
-          $group: {
-            _id: '$items.product._id',
-            sum: { $sum: '$items.quantity' }
-          }
-        },
-        { $sort: { sum: -1 } },
-        { $limit: top }
-      ]);
-
-      const products = [];
-      for (const item of items) {
-        const product = await this.selectByID(item._id);
-        if (product) products.push(product);
-      }
-      return products;
-    } catch (error) {
-      console.error('Error selecting top hot products:', error);
-      return [];
+    const items = await Models.Order.aggregate([
+      { $match: { status: 'APPROVED ' } },
+      { $unwind: '$items ' },
+      { $group: { _id: '$items.product._id', sum: { $sum: '$items.quantity' } } },
+      { $sort: { sum: -1 } }, // descending
+      { $limit: top }
+    ]).exec();
+    var products = [];
+    for (const item of items) {
+      const product = await ProductDAO.selectByID(item._id);
+      products.push(product);
     }
+    // If no hot products from orders, return top new products
+    if (products.length === 0) {
+      products = await ProductDAO.selectTopNew(top);
+    }
+    return products;
   },
 
-  async selectByCatID(cid) {
+  async selectByCatID(_cid) {
     try {
-      // Validate ObjectId
-      if (!mongoose.Types.ObjectId.isValid(cid)) {
+      // Validate ObjectId before querying
+      if (!mongoose.Types.ObjectId.isValid(_cid)) {
         return [];
       }
-      const products = await Models.Product
-        .find({ 'category._id': cid })
-        .exec();
+      const query = { 'category._id': new mongoose.Types.ObjectId(_cid) };
+      const products = await Models.Product.find(query).exec();
       return products;
     } catch (error) {
       console.error('Error selecting products by category ID:', error);
@@ -88,15 +73,9 @@ const ProductDAO = {
   },
 
   async selectByKeyword(keyword) {
-    try {
-      const products = await Models.Product
-        .find({ name: { $regex: keyword, $options: 'i' } })
-        .exec();
-      return products;
-    } catch (error) {
-      console.error('Error selecting products by keyword:', error);
-      return [];
-    }
+    const query = { name: { $regex: new RegExp(keyword, "i") } };
+    const products = await Models.Product.find(query).exec();
+    return products;
   },
 
   async insert(product) {

@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
 // utils
 const JwtUtil = require('../utils/JwtUtil');
@@ -118,7 +120,15 @@ router.post('/products', JwtUtil.checkToken, async function (req, res) {
   const image = req.body.image;
   const now = new Date().getTime(); // milliseconds
   const category = await CategoryDAO.selectByID(cid);
-  const product = { name: name, price: price, image: image, cdate: now, category: category };
+  
+  let imageFilename = '';
+  if (image) {
+    const imageBuffer = Buffer.from(image.split(',')[1], 'base64');
+    imageFilename = Date.now() + '.jpg';
+    fs.writeFileSync(path.join(__dirname, '..', 'images', imageFilename), imageBuffer);
+  }
+  
+  const product = { name: name, price: price, image: imageFilename, cdate: now, category: category };
   const result = await ProductDAO.insert(product);
   res.json(result);
 });
@@ -132,7 +142,15 @@ router.put('/products/:id', JwtUtil.checkToken, async function (req, res) {
     const image = req.body.image;
     const now = new Date().getTime(); // milliseconds
     const category = await CategoryDAO.selectByID(cid);
-    const product = { _id: _id, name: name, price: price, image: image, cdate: now, category: category };
+    
+    let imageFilename = req.body.currentImage || ''; // assume current image filename
+    if (image && image.startsWith('data:image')) {
+      const imageBuffer = Buffer.from(image.split(',')[1], 'base64');
+      imageFilename = Date.now() + '.jpg';
+      fs.writeFileSync(path.join(__dirname, '..', 'images', imageFilename), imageBuffer);
+    }
+    
+    const product = { _id: _id, name: name, price: price, image: imageFilename, cdate: now, category: category };
     const result = await ProductDAO.update(product);
     res.json(result);
   } catch (error) {
